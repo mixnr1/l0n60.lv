@@ -12,6 +12,7 @@ from selenium.webdriver.support.select import Select
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 
+year=int(time.strftime("%Y"))
 start = time.time()
 start_tuple=time.localtime()
 start_time = time.strftime("%Y-%m-%d %H:%M:%S", start_tuple)
@@ -36,33 +37,33 @@ pageSize='100'
 the_list=[]
 for i in range(0, len(models)):
     page = f'https://longo.lv/automasinu-katalogs?models={models[i]}&bodyTypes={bodyTypes}&fuelTypes={fuelTypes}&driveTypes={driveTypes}&priceTo={priceTo}&pageSize={pageSize}'
-    # print(page)
     driver.get(page)
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    time.sleep(1) # Let the user actually see something!
+    time.sleep(1) 
     divs=driver.find_elements_by_class_name('col-6.col-md-4')
     for div in divs:
         if "lietoti" in div.find_element_by_tag_name('a').get_attribute('href'):
             links=div.find_element_by_tag_name('a').get_attribute('href')
             for el in (div.find_elements_by_class_name('v-card-item__content')):
                 title=el.find_element_by_class_name('v-card-item__title').text
+                relase_year=int(re.search(r'\d{4}', title).group())
                 for el2 in (el.find_elements_by_class_name('v-card-item__full-price')):
                     price=el2.find_element_by_class_name('v-card-item__price-value').text
             for el3 in (div.find_elements_by_class_name('v-card-item__content')):
                 for el4 in (el3.find_elements_by_class_name('v-card-item__details')):
                     if len(el4.find_elements_by_class_name('chip')) == 3:
                         milage=el4.find_elements_by_class_name('chip')[0].text
+                        strip_milage=milage.strip('km').replace(' ', '')
+                        annual_mileage = int(strip_milage) / (int(year) - int(relase_year))
                         fuel=el4.find_elements_by_class_name('chip')[1].text
                         transmission=el4.find_elements_by_class_name('chip')[2].text
-            the_list.append([links,title,price,milage,fuel,transmission])
+            the_list.append([links,title,price,milage,fuel,transmission,round(annual_mileage, 2)])
         else:
             continue
 driver.close()
 
-# write_to_file(the_list)
-
-
 test = [i[0] for i in the_list]
+
 file_text=open(config.file_path+'unique.txt', 'r').read().split('\n')
 diff=[line for line in test if line not in file_text]
 while True:
@@ -75,7 +76,7 @@ while True:
         for i in range(0, len(diff)):
             for n in range(0, len(the_list)):
                 if the_list[n][0] == diff[i]:
-                    HTML_text.append(str("<tr><td><a href='"+the_list[n][0]+"'>"+the_list[n][1]+"</a></td><td>"+the_list[n][2]+"</td><td>"+the_list[n][3]+"</td><td>"+the_list[n][4]+"</td><td>"+the_list[n][5]+"</td></tr>"))
+                    HTML_text.append(str("<tr><td><a href='"+the_list[n][0]+"'>"+the_list[n][1]+"</a></td><td>"+the_list[n][2]+"</td><td>"+the_list[n][3]+"</td><td>"+the_list[n][4]+"</td><td>"+the_list[n][5]+"</td><td>"+str(the_list[n][6])+"</td></tr>"))
         sender_email = config.sender_email
         receiver_email = config.receiver_email
         password = config.password
@@ -96,13 +97,13 @@ while True:
                     <th>Milage</th>
                     <th>Fuel</th>
                     <th>Transmission</th>
+                    <th>Annual mileage</th>
                 </tr>
                 {" ".join(str(x) for x in HTML_text)}
             </table>
         </body>
         </html>
         """
-        # print(html)
         part1 = MIMEText(plain, "plain")
         part2 = MIMEText(html, "html")
         message.attach(part1)
